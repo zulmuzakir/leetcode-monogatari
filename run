@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Usage:
+# ./run neetcode150/01_arrays_hashing/0217_contains_duplicate/solution.cpp
+# OR
+# ./run 0217
+
+TARGET=$1
+
+if [ -z "$TARGET" ]; then
+    echo "Usage: ./run <path_to_cpp_file> OR ./run <problem_number>"
+    exit 1
+fi
+
+FILE_PATH=""
+
+# Check if input is a direct file path
+if [[ -f "$TARGET" ]]; then
+    FILE_PATH=$TARGET
+else
+    # Try to find a directory starting with the number (e.g., 0217) or containing it
+    # and look for solution.cpp inside.
+    FILE_PATH=$(find . -path "./.git" -prune -o -type f -name "solution.cpp" -path "*/${TARGET}*/*" -print | head -n 1)
+fi
+
+if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
+    echo "Error: Could not find solution.cpp for '$TARGET'."
+    exit 1
+fi
+
+# Create build directory
+mkdir -p .build
+
+# Create a unique binary name based on the file path to avoid collisions
+# Example: neetcode150_01_arrays_hashing_0217_contains_duplicate_solution
+REL_PATH=$(echo "$FILE_PATH" | sed 's/\.\///' | sed 's/\//_/g' | sed 's/\.cpp//g')
+OUTPUT=".build/$REL_PATH"
+
+# Compile with C++17
+echo "Compiling $FILE_PATH..."
+g++ -std=c++17 "$FILE_PATH" -o "$OUTPUT"
+
+# Run if compilation succeeded
+if [ $? -eq 0 ]; then
+    echo -e "Running...
+"
+    "./$OUTPUT"
+    EXIT_CODE=$?
+    echo -e "
+----------------------------------------"
+    echo "Process finished with exit code $EXIT_CODE"
+else
+    echo "Compilation failed."
+    exit 1
+fi

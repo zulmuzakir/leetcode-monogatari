@@ -16,6 +16,7 @@ __pycache__/
 *$py.class
 
 # OS generated files
+.build/
 .DS_Store
 .DS_Store?
 ._*
