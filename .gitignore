@@ -1,0 +1,31 @@
+# C++ Compiled files
+*.o
+*.obj
+*.exe
+*.out
+*.app
+*.dSYM/
+
+# Common C++ executables (often named after source)
+solution
+a.out
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
