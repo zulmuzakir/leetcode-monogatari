@@ -6,7 +6,7 @@ Personal repository for tracking progress through the [NeetCode 150](https://nee
 
 | Category | Progress | Status |
 | :--- | :---: | :--- |
-| 01. Arrays & Hashing | 6 / 9 | 🔄 In Progress |
+| 01. Arrays & Hashing | 7 / 9 | 🔄 In Progress |
 | 02. Two Pointers | 0 / 5 | ⏳ Not Started |
 | 03. Sliding Window | 0 / 6 | ⏳ Not Started |
 | 04. Stack | 0 / 7 | ⏳ Not Started |
