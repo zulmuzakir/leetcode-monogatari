@@ -62,7 +62,7 @@ class RunnerCliTestCase(unittest.TestCase):
         )
 
     def add_problem(self, number, name, category="01_arrays_hashing",
-                    track="neetcode150", files=None):
+                    track="neetcode250", files=None):
         folder = self.root / track / category / f"{number}_{name}"
         folder.mkdir(parents=True, exist_ok=True)
         for fname, content in (files or {}).items():
@@ -321,7 +321,7 @@ class TestProgress(RunnerCliTestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         content = readme.read_text()
-        self.assertIn("| 01. Arrays & Hashing | 1 / 9 |", content)
+        self.assertIn("| 01. Arrays & Hashing | 1 / 22 |", content)
         self.assertNotIn("2 / 9", content)
         self.assertNotIn("stale hand-written table", content)
 
@@ -376,15 +376,15 @@ class TestProgress(RunnerCliTestCase):
         expected = [
             "01. Arrays & Hashing", "02. Two Pointers", "03. Sliding Window",
             "04. Stack", "05. Binary Search", "06. Linked List", "07. Trees",
-            "08. Tries", "09. Heap / Priority Queue", "10. Backtracking",
+            "08. Heap / Priority Queue", "09. Backtracking", "10. Tries",
             "11. Graphs", "12. Advanced Graphs", "13. 1D Dynamic Programming",
             "14. 2D Dynamic Programming", "15. Greedy", "16. Intervals",
             "17. Math & Geometry", "18. Bit Manipulation",
         ]
         self.assertEqual(labels[:18], expected)
         content = readme.read_text()
-        self.assertIn("| 11. Graphs | 1 / 13 |", content)
-        self.assertIn("| 08. Tries | 0 / 3 |", content)
+        self.assertIn("| 11. Graphs | 1 / 21 |", content)
+        self.assertIn("| 10. Tries | 0 / 4 |", content)
 
     def test_general_track_row_counts_solved_without_denominator(self):
         self.add_problem(

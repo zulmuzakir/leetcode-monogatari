@@ -8,7 +8,7 @@ using namespace std;
 // ============================================================================
 //  INTERACTIVE VISUAL LEARNER: Valid Sudoku, one step at a time.
 //
-//  Run:  ./run neetcode150/01_arrays_hashing/0036_valid_sudoku/visual.cpp
+//  Run:  ./run neetcode250/01_arrays_hashing/0036_valid_sudoku/visual.cpp
 //
 //  YOU control the pace: press Enter to step to the next cell.
 //  Type 'q' + Enter to quit. This board (Example 2) is INVALID and the

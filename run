@@ -16,33 +16,34 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 BUILD_DIR = ROOT / ".build"
-TRACKS = ("neetcode150", "general")
+TRACKS = ("neetcode250", "general")
 PROBLEM_FOLDER = re.compile(r"^(\d+)_.+")
 SOLUTION_FILES = ("solution.cpp", "solution.py")
 PROGRESS_START = "<!-- progress:start -->"
 PROGRESS_END = "<!-- progress:end -->"
 
-# NeetCode 150 curriculum: category folder name, display name, problem total.
+# NeetCode 250 curriculum: category folder name, display name, problem total.
 # Row order in the generated progress table follows this tuple, not the disk.
+# Category order and totals verified against neetcode.io (see ADR-0002).
 CURRICULUM = (
-    ("01_arrays_hashing", "Arrays & Hashing", 9),
-    ("02_two_pointers", "Two Pointers", 5),
-    ("03_sliding_window", "Sliding Window", 6),
-    ("04_stack", "Stack", 7),
-    ("05_binary_search", "Binary Search", 7),
-    ("06_linked_list", "Linked List", 11),
-    ("07_trees", "Trees", 15),
-    ("08_tries", "Tries", 3),
-    ("09_heap_priority_queue", "Heap / Priority Queue", 7),
-    ("10_backtracking", "Backtracking", 9),
-    ("11_graphs", "Graphs", 13),
-    ("12_advanced_graphs", "Advanced Graphs", 6),
-    ("13_1d_dynamic_programming", "1D Dynamic Programming", 12),
-    ("14_2d_dynamic_programming", "2D Dynamic Programming", 11),
-    ("15_greedy", "Greedy", 8),
-    ("16_intervals", "Intervals", 6),
-    ("17_math_geometry", "Math & Geometry", 8),
-    ("18_bit_manipulation", "Bit Manipulation", 7),
+    ("01_arrays_hashing", "Arrays & Hashing", 22),
+    ("02_two_pointers", "Two Pointers", 13),
+    ("03_sliding_window", "Sliding Window", 9),
+    ("04_stack", "Stack", 15),
+    ("05_binary_search", "Binary Search", 14),
+    ("06_linked_list", "Linked List", 14),
+    ("07_trees", "Trees", 23),
+    ("08_heap_priority_queue", "Heap / Priority Queue", 12),
+    ("09_backtracking", "Backtracking", 16),
+    ("10_tries", "Tries", 4),
+    ("11_graphs", "Graphs", 21),
+    ("12_advanced_graphs", "Advanced Graphs", 10),
+    ("13_1d_dynamic_programming", "1D Dynamic Programming", 17),
+    ("14_2d_dynamic_programming", "2D Dynamic Programming", 16),
+    ("15_greedy", "Greedy", 14),
+    ("16_intervals", "Intervals", 7),
+    ("17_math_geometry", "Math & Geometry", 13),
+    ("18_bit_manipulation", "Bit Manipulation", 10),
 )
 CURRICULUM_DIRS = {dirname for dirname, _, _ in CURRICULUM}
 
@@ -143,7 +144,7 @@ def regenerate_progress() -> int:
     readme = ROOT / "README.md"
     if not readme.is_file():
         return fail(f"no README.md at repository root to hold the progress table")
-    neetcode = scan_track("neetcode150")
+    neetcode = scan_track("neetcode250")
     error = curriculum_violation(neetcode)
     if error:
         return fail(error)
@@ -168,7 +169,7 @@ def regenerate_progress() -> int:
 
 
 def list_action() -> int:
-    neetcode = scan_track("neetcode150")
+    neetcode = scan_track("neetcode250")
     error = curriculum_violation(neetcode)
     if error:
         return fail(error)
