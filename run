@@ -1,55 +1,321 @@
-#!/bin/bash
+#!/usr/bin/env python3
+"""Runner: compile-and-run solutions by problem number or path.
 
-# Usage:
-# ./run neetcode150/01_arrays_hashing/0217_contains_duplicate/solution.cpp
-# OR
-# ./run 0217
+C++ and Python solutions are first-class: dispatch is by file extension, and
+a problem folder may hold both languages (disambiguate with --lang). Also
+regenerates the progress table in the root README (`progress`) and lists
+Solved problems (--list). The repository root is the directory containing
+the Runner. Build artifacts are confined to the ignored .build directory.
+"""
 
-TARGET=$1
+import argparse
+import re
+import subprocess
+import sys
+from pathlib import Path
 
-if [ -z "$TARGET" ]; then
-    echo "Usage: ./run <path_to_cpp_file> OR ./run <problem_number>"
-    exit 1
-fi
+ROOT = Path(__file__).resolve().parent
+BUILD_DIR = ROOT / ".build"
+TRACKS = ("neetcode250", "general")
+PROBLEM_FOLDER = re.compile(r"^(\d+)_.+")
+SOLUTION_FILES = ("solution.cpp", "solution.py")
+PROGRESS_START = "<!-- progress:start -->"
+PROGRESS_END = "<!-- progress:end -->"
 
-FILE_PATH=""
+# NeetCode 250 curriculum: category folder name, display name, problem total.
+# Row order in the generated progress table follows this tuple, not the disk.
+# Category order and totals verified against neetcode.io (see ADR-0002).
+CURRICULUM = (
+    ("01_arrays_hashing", "Arrays & Hashing", 22),
+    ("02_two_pointers", "Two Pointers", 13),
+    ("03_sliding_window", "Sliding Window", 9),
+    ("04_stack", "Stack", 14),
+    ("05_binary_search", "Binary Search", 14),
+    ("06_linked_list", "Linked List", 14),
+    ("07_trees", "Trees", 23),
+    ("08_heap_priority_queue", "Heap / Priority Queue", 12),
+    ("09_backtracking", "Backtracking", 17),
+    ("10_tries", "Tries", 4),
+    ("11_graphs", "Graphs", 21),
+    ("12_advanced_graphs", "Advanced Graphs", 10),
+    ("13_1d_dynamic_programming", "1D Dynamic Programming", 17),
+    ("14_2d_dynamic_programming", "2D Dynamic Programming", 16),
+    ("15_greedy", "Greedy", 14),
+    ("16_intervals", "Intervals", 7),
+    ("17_math_geometry", "Math & Geometry", 13),
+    ("18_bit_manipulation", "Bit Manipulation", 10),
+)
+CURRICULUM_DIRS = {dirname for dirname, _, _ in CURRICULUM}
 
-# Check if input is a direct file path
-if [[ -f "$TARGET" ]]; then
-    FILE_PATH=$TARGET
-else
-    # Try to find a directory starting with the number (e.g., 0217) or containing it
-    # and look for solution.cpp inside.
-    FILE_PATH=$(find . -path "./.git" -prune -o -type f -name "solution.cpp" -path "*/${TARGET}*/*" -print | head -n 1)
-fi
 
-if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
-    echo "Error: Could not find solution.cpp for '$TARGET'."
-    exit 1
-fi
+def fail(message: str) -> int:
+    print(f"run: {message}", file=sys.stderr)
+    return 1
 
-# Create build directory
-mkdir -p .build
 
-# Create a unique binary name based on the file path to avoid collisions
-# Example: neetcode150_01_arrays_hashing_0217_contains_duplicate_solution
-REL_PATH=$(echo "$FILE_PATH" | sed 's/\.\///' | sed 's/\//_/g' | sed 's/\.cpp//g')
-OUTPUT=".build/$REL_PATH"
+def category_dirs(track: str) -> list[Path]:
+    """Category directories of a track, sorted; empty when the track is absent."""
+    track_dir = ROOT / track
+    if not track_dir.is_dir():
+        return []
+    return sorted(entry for entry in track_dir.iterdir() if entry.is_dir())
 
-# Compile with C++17
-echo "Compiling $FILE_PATH..."
-g++ -std=c++17 "$FILE_PATH" -o "$OUTPUT"
 
-# Run if compilation succeeded
-if [ $? -eq 0 ]; then
-    echo -e "Running...
-"
-    "./$OUTPUT"
-    EXIT_CODE=$?
-    echo -e "
-----------------------------------------"
-    echo "Process finished with exit code $EXIT_CODE"
-else
-    echo "Compilation failed."
-    exit 1
-fi
+def problem_folders(category: Path) -> list[Path]:
+    """Problem folders (MMMM_name) directly under a category, sorted."""
+    return [
+        entry
+        for entry in sorted(category.iterdir())
+        if entry.is_dir() and PROBLEM_FOLDER.match(entry.name)
+    ]
+
+
+def number_of(folder: Path) -> str:
+    """The leading number token of a problem folder name."""
+    return folder.name.split("_", 1)[0]
+
+
+def find_problem_folders(number: str) -> list[Path]:
+    """Problem folders whose number token exactly matches the input."""
+    return [
+        folder
+        for track in TRACKS
+        for category in category_dirs(track)
+        for folder in problem_folders(category)
+        if number_of(folder) == number
+    ]
+
+
+def is_solved(folder: Path) -> bool:
+    """ADR-0001: Solved means at least one solution AND its notes."""
+    has_solution = any((folder / name).is_file() for name in SOLUTION_FILES)
+    return has_solution and (folder / "README.md").is_file()
+
+
+def scan_track(track: str) -> dict[str, list[Path]]:
+    """Category folder name -> sorted Solved problem folders, per track."""
+    return {
+        category.name: [
+            folder for folder in problem_folders(category) if is_solved(folder)
+        ]
+        for category in category_dirs(track)
+    }
+
+
+def category_label(dirname: str, display: str) -> str:
+    """'01_arrays_hashing' + 'Arrays & Hashing' -> '01. Arrays & Hashing'."""
+    return f"{dirname.split('_', 1)[0]}. {display}"
+
+
+def progress_table(neetcode: dict[str, list[Path]], general: dict[str, list[Path]]) -> str:
+    rows = [
+        "| Category | Progress | Status |",
+        "| :--- | :---: | :--- |",
+    ]
+    for dirname, display, total in CURRICULUM:
+        solved = len(neetcode.get(dirname, []))
+        if solved >= total:
+            status = "✅ Completed"
+        elif solved > 0:
+            status = "🔄 In Progress"
+        else:
+            status = "⏳ Not Started"
+        label = category_label(dirname, display)
+        rows.append(f"| {label} | {solved} / {total} | {status} |")
+    general_total = sum(len(folders) for folders in general.values())
+    if general_total:
+        rows.append(f"| General | {general_total} | 🔄 In Progress |")
+    return "\n".join(rows)
+
+
+def curriculum_violation(neetcode: dict[str, list[Path]]) -> str | None:
+    """Guard the curriculum invariant shared by progress and --list."""
+    unknown = sorted(set(neetcode) - CURRICULUM_DIRS)
+    if not unknown:
+        return None
+    listed = ", ".join(unknown)
+    return (
+        f"category folder(s) outside the curriculum constants: {listed} "
+        f"(add them to CURRICULUM in run or move them to the general track)"
+    )
+
+
+def regenerate_progress() -> int:
+    readme = ROOT / "README.md"
+    if not readme.is_file():
+        return fail(f"no README.md at repository root to hold the progress table")
+    neetcode = scan_track("neetcode250")
+    error = curriculum_violation(neetcode)
+    if error:
+        return fail(error)
+    table = progress_table(neetcode, scan_track("general"))
+
+    lines = readme.read_text().splitlines(keepends=True)
+    starts = [i for i, line in enumerate(lines) if line.strip() == PROGRESS_START]
+    ends = [i for i, line in enumerate(lines) if line.strip() == PROGRESS_END]
+    if len(starts) != 1 or len(ends) != 1 or ends[0] < starts[0]:
+        return fail(
+            f"README.md needs exactly one {PROGRESS_START} line and one "
+            f"{PROGRESS_END} line around the progress table"
+        )
+    rebuilt = (
+        lines[: starts[0] + 1]
+        + [row + "\n" for row in table.splitlines()]
+        + lines[ends[0]:]
+    )
+    readme.write_text("".join(rebuilt))
+    print(table)
+    return 0
+
+
+def list_action() -> int:
+    neetcode = scan_track("neetcode250")
+    error = curriculum_violation(neetcode)
+    if error:
+        return fail(error)
+    lines = []
+    for dirname, display, _total in CURRICULUM:
+        folders = neetcode.get(dirname, [])
+        if not folders:
+            continue
+        label = category_label(dirname, display)
+        lines.append(f"{label} ({len(folders)})")
+        lines.extend(f"  {folder.name}" for folder in folders)
+    general_folders = [
+        folder for folders in scan_track("general").values() for folder in folders
+    ]
+    if general_folders:
+        lines.append(f"General ({len(general_folders)})")
+        lines.extend(f"  {folder.name}" for folder in general_folders)
+    if lines:
+        print("\n".join(lines))
+    return 0
+
+
+def report_exit(finished: subprocess.CompletedProcess) -> int:
+    print("\n----------------------------------------")
+    print(f"Process finished with exit code {finished.returncode}")
+    return finished.returncode
+
+
+def compile_and_run(cpp_path: Path) -> int:
+    BUILD_DIR.mkdir(exist_ok=True)
+    binary = BUILD_DIR / (str(cpp_path.relative_to(ROOT))
+                          .replace("/", "_")
+                          .replace(".cpp", ""))
+    print(f"Compiling {cpp_path} ...")
+    compiled = subprocess.run(
+        ["g++", "-std=c++17", str(cpp_path), "-o", str(binary)]
+    )
+    if compiled.returncode != 0:
+        return fail(f"compilation failed: {cpp_path}")
+    print("Running...\n")
+    return report_exit(subprocess.run([str(binary)], cwd=ROOT))
+
+
+def execute_python(py_path: Path) -> int:
+    print(f"Running {py_path} ...\n")
+    return report_exit(subprocess.run([sys.executable, str(py_path)], cwd=ROOT))
+
+
+DISPATCH = {"cpp": compile_and_run, "py": execute_python}
+
+
+def run_by_number(number: str, lang: str | None) -> int:
+    matches = find_problem_folders(number)
+    if not matches:
+        candidates = [
+            folder
+            for track in TRACKS
+            for category in category_dirs(track)
+            for folder in problem_folders(category)
+            if number in number_of(folder)
+        ]
+        listed = ", ".join(str(m.relative_to(ROOT)) for m in candidates) or "none"
+        return fail(
+            f"no problem folder matches number '{number}' "
+            f"(searched tracks: {', '.join(TRACKS)}); candidates: {listed}"
+        )
+    if len(matches) > 1:
+        listed = ", ".join(str(m.relative_to(ROOT)) for m in matches)
+        return fail(f"number '{number}' matches multiple problem folders: {listed}")
+    folder = matches[0]
+    if lang is not None:
+        chosen = folder / f"solution.{lang}"
+        if not chosen.is_file():
+            return fail(
+                f"--lang {lang} given but no solution.{lang} "
+                f"in {folder.relative_to(ROOT)}"
+            )
+        return DISPATCH[lang](chosen)
+    solutions = {
+        name: folder / f"solution.{name}"
+        for name in DISPATCH
+        if (folder / f"solution.{name}").is_file()
+    }
+    if len(solutions) > 1:
+        return fail(
+            f"number '{number}' has both languages "
+            f"in {folder.relative_to(ROOT)}: solution.cpp and solution.py "
+            f"— pass --lang cpp or --lang py"
+        )
+    if solutions:
+        name, solution = next(iter(solutions.items()))
+        return DISPATCH[name](solution)
+    return fail(f"no solution in {folder.relative_to(ROOT)}")
+
+
+def run_by_path(target: str, lang: str | None) -> int:
+    path = Path(target)
+    if path.is_file():
+        suffix = path.suffix.lstrip(".")
+        if suffix not in DISPATCH:
+            return fail(
+                f"unsupported file type '{target}' "
+                f"(only .cpp and .py are supported)"
+            )
+        if lang is not None and lang != suffix:
+            return fail(
+                f"--lang {lang} does not match .{suffix} file '{target}'"
+            )
+        return DISPATCH[suffix](path.resolve())
+    if path.exists():
+        return fail(f"not a file: {target}")
+    return fail(f"no such file: {target}")
+
+
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(
+        prog="run",
+        description="Compile-and-run solutions by problem number or path.",
+    )
+    parser.add_argument(
+        "target", nargs="?", default=None,
+        help="problem number (e.g. 0217), path to a .cpp/.py file, or 'progress'",
+    )
+    parser.add_argument(
+        "--list", dest="list_action", action="store_true",
+        help="list Solved problems grouped by category",
+    )
+    parser.add_argument(
+        "--lang", choices=("cpp", "py"),
+        help="choose the language when a problem folder holds both solutions",
+    )
+    args = parser.parse_args(argv[1:])
+    if args.list_action and args.target is not None:
+        parser.error("--list cannot be combined with a target")
+    if args.list_action:
+        return list_action()
+    if args.target is None:
+        parser.error(
+            "provide a problem number, a file path, or 'progress' (or pass --list)"
+        )
+    if args.target == "progress":
+        return regenerate_progress()
+    if args.target.isdigit():
+        return run_by_number(args.target, args.lang)
+    return run_by_path(args.target, args.lang)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
