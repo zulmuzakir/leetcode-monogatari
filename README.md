@@ -4,9 +4,10 @@ Personal repository for tracking progress through the [NeetCode 150](https://nee
 
 ## 🚀 Progress Tracker
 
+<!-- progress:start -->
 | Category | Progress | Status |
 | :--- | :---: | :--- |
-| 01. Arrays & Hashing | 7 / 9 | 🔄 In Progress |
+| 01. Arrays & Hashing | 8 / 9 | 🔄 In Progress |
 | 02. Two Pointers | 0 / 5 | ⏳ Not Started |
 | 03. Sliding Window | 0 / 6 | ⏳ Not Started |
 | 04. Stack | 0 / 7 | ⏳ Not Started |
@@ -24,6 +25,7 @@ Personal repository for tracking progress through the [NeetCode 150](https://nee
 | 16. Intervals | 0 / 6 | ⏳ Not Started |
 | 17. Math & Geometry | 0 / 8 | ⏳ Not Started |
 | 18. Bit Manipulation | 0 / 7 | ⏳ Not Started |
+<!-- progress:end -->
 
 ---
 
@@ -32,9 +34,7 @@ Personal repository for tracking progress through the [NeetCode 150](https://nee
 - `neetcode150/`: Solutions categorized by the NeetCode roadmap.
 - `general/`: Other LeetCode problems not included in NeetCode 150.
 - `templates/`: Boilerplate code for various languages.
-- `utils/`: Common data structure implementations (Linked List, Trees) for local debugging.
 
 ## 📝 How to use
-1. Use a template from `templates/`.
 2. Create a folder for the problem under the appropriate category: `neetcode150/[category]/[problem_name]/`.
 3. Include a `README.md` in the problem folder for complexity analysis and intuition.
