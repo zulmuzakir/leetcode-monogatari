@@ -2,9 +2,10 @@
 """Runner: compile-and-run solutions by problem number or path.
 
 C++ and Python solutions are first-class: dispatch is by file extension, and
-a problem folder may hold both languages (disambiguate with --lang). The
-repository root is the directory containing this script. Build artifacts are
-confined to the ignored .build directory.
+a problem folder may hold both languages (disambiguate with --lang). Also
+regenerates the progress table in the root README (`progress`) and lists
+Solved problems (--list). The repository root is the directory containing
+the Runner. Build artifacts are confined to the ignored .build directory.
 """
 
 import argparse
@@ -47,26 +48,41 @@ CURRICULUM_DIRS = {dirname for dirname, _, _ in CURRICULUM}
 
 
 def fail(message: str) -> int:
-    print(f"run.py: {message}", file=sys.stderr)
+    print(f"run: {message}", file=sys.stderr)
     return 1
 
 
+def category_dirs(track: str) -> list[Path]:
+    """Category directories of a track, sorted; empty when the track is absent."""
+    track_dir = ROOT / track
+    if not track_dir.is_dir():
+        return []
+    return sorted(entry for entry in track_dir.iterdir() if entry.is_dir())
+
+
+def problem_folders(category: Path) -> list[Path]:
+    """Problem folders (MMMM_name) directly under a category, sorted."""
+    return [
+        entry
+        for entry in sorted(category.iterdir())
+        if entry.is_dir() and PROBLEM_FOLDER.match(entry.name)
+    ]
+
+
+def number_of(folder: Path) -> str:
+    """The leading number token of a problem folder name."""
+    return folder.name.split("_", 1)[0]
+
+
 def find_problem_folders(number: str) -> list[Path]:
-    """Problem folders whose leading number token exactly matches."""
-    target = number.zfill(4)
-    matches = []
-    for track in TRACKS:
-        track_dir = ROOT / track
-        if not track_dir.is_dir():
-            continue
-        for category in sorted(track_dir.iterdir()):
-            if not category.is_dir():
-                continue
-            for folder in sorted(category.iterdir()):
-                found = PROBLEM_FOLDER.match(folder.name)
-                if folder.is_dir() and found and found.group(1) == target:
-                    matches.append(folder)
-    return matches
+    """Problem folders whose number token exactly matches the input."""
+    return [
+        folder
+        for track in TRACKS
+        for category in category_dirs(track)
+        for folder in problem_folders(category)
+        if number_of(folder) == number
+    ]
 
 
 def is_solved(folder: Path) -> bool:
@@ -77,53 +93,61 @@ def is_solved(folder: Path) -> bool:
 
 def scan_track(track: str) -> dict[str, list[Path]]:
     """Category folder name -> sorted Solved problem folders, per track."""
-    solved: dict[str, list[Path]] = {}
-    track_dir = ROOT / track
-    if not track_dir.is_dir():
-        return solved
-    for category in sorted(track_dir.iterdir()):
-        if not category.is_dir():
-            continue
-        solved[category.name] = [
-            folder
-            for folder in sorted(category.iterdir())
-            if folder.is_dir()
-            and PROBLEM_FOLDER.match(folder.name)
-            and is_solved(folder)
+    return {
+        category.name: [
+            folder for folder in problem_folders(category) if is_solved(folder)
         ]
-    return solved
+        for category in category_dirs(track)
+    }
 
 
-def progress_table(neo: dict[str, list[Path]], general: dict[str, list[Path]]) -> str:
+def category_label(dirname: str, display: str) -> str:
+    """'01_arrays_hashing' + 'Arrays & Hashing' -> '01. Arrays & Hashing'."""
+    return f"{dirname.split('_', 1)[0]}. {display}"
+
+
+def progress_table(neetcode: dict[str, list[Path]], general: dict[str, list[Path]]) -> str:
     rows = [
         "| Category | Progress | Status |",
         "| :--- | :---: | :--- |",
     ]
     for dirname, display, total in CURRICULUM:
-        solved = len(neo.get(dirname, []))
+        solved = len(neetcode.get(dirname, []))
         if solved >= total:
             status = "✅ Completed"
         elif solved > 0:
             status = "🔄 In Progress"
         else:
             status = "⏳ Not Started"
-        number = dirname.split("_", 1)[0]
-        rows.append(f"| {number}. {display} | {solved} / {total} | {status} |")
+        label = category_label(dirname, display)
+        rows.append(f"| {label} | {solved} / {total} | {status} |")
     general_total = sum(len(folders) for folders in general.values())
     if general_total:
         rows.append(f"| General | {general_total} | 🔄 In Progress |")
     return "\n".join(rows)
 
 
+def curriculum_violation(neetcode: dict[str, list[Path]]) -> str | None:
+    """Guard the curriculum invariant shared by progress and --list."""
+    unknown = sorted(set(neetcode) - CURRICULUM_DIRS)
+    if not unknown:
+        return None
+    listed = ", ".join(unknown)
+    return (
+        f"category folder(s) outside the curriculum constants: {listed} "
+        f"(add them to CURRICULUM in run or move them to the general track)"
+    )
+
+
 def regenerate_progress() -> int:
     readme = ROOT / "README.md"
     if not readme.is_file():
         return fail(f"no README.md at repository root to hold the progress table")
-    neo = scan_track("neetcode150")
-    error = curriculum_violation(neo)
+    neetcode = scan_track("neetcode150")
+    error = curriculum_violation(neetcode)
     if error:
         return fail(error)
-    table = progress_table(neo, scan_track("general"))
+    table = progress_table(neetcode, scan_track("general"))
 
     lines = readme.read_text().splitlines(keepends=True)
     starts = [i for i, line in enumerate(lines) if line.strip() == PROGRESS_START]
@@ -143,30 +167,18 @@ def regenerate_progress() -> int:
     return 0
 
 
-def curriculum_violation(neo: dict[str, list[Path]]) -> str | None:
-    """Guard the curriculum invariant shared by progress and --list."""
-    unknown = sorted(set(neo) - CURRICULUM_DIRS)
-    if not unknown:
-        return None
-    listed = ", ".join(unknown)
-    return (
-        f"category folder(s) outside the curriculum constants: {listed} "
-        f"(add them to CURRICULUM in run.py or move them to the general track)"
-    )
-
-
 def list_action() -> int:
-    neo = scan_track("neetcode150")
-    error = curriculum_violation(neo)
+    neetcode = scan_track("neetcode150")
+    error = curriculum_violation(neetcode)
     if error:
         return fail(error)
     lines = []
     for dirname, display, _total in CURRICULUM:
-        folders = neo.get(dirname, [])
+        folders = neetcode.get(dirname, [])
         if not folders:
             continue
-        number = dirname.split("_", 1)[0]
-        lines.append(f"{number}. {display} ({len(folders)})")
+        label = category_label(dirname, display)
+        lines.append(f"{label} ({len(folders)})")
         lines.extend(f"  {folder.name}" for folder in folders)
     general_folders = [
         folder for folders in scan_track("general").values() for folder in folders
@@ -205,19 +217,28 @@ def execute_python(py_path: Path) -> int:
     return report_exit(subprocess.run([sys.executable, str(py_path)], cwd=ROOT))
 
 
+DISPATCH = {"cpp": compile_and_run, "py": execute_python}
+
+
 def run_by_number(number: str, lang: str | None) -> int:
     matches = find_problem_folders(number)
     if not matches:
+        candidates = [
+            folder
+            for track in TRACKS
+            for category in category_dirs(track)
+            for folder in problem_folders(category)
+            if number in number_of(folder)
+        ]
+        listed = ", ".join(str(m.relative_to(ROOT)) for m in candidates) or "none"
         return fail(
             f"no problem folder matches number '{number}' "
-            f"(searched tracks: {', '.join(TRACKS)})"
+            f"(searched tracks: {', '.join(TRACKS)}); candidates: {listed}"
         )
     if len(matches) > 1:
         listed = ", ".join(str(m.relative_to(ROOT)) for m in matches)
         return fail(f"number '{number}' matches multiple problem folders: {listed}")
     folder = matches[0]
-    cpp = folder / "solution.cpp"
-    py = folder / "solution.py"
     if lang is not None:
         chosen = folder / f"solution.{lang}"
         if not chosen.is_file():
@@ -225,36 +246,38 @@ def run_by_number(number: str, lang: str | None) -> int:
                 f"--lang {lang} given but no solution.{lang} "
                 f"in {folder.relative_to(ROOT)}"
             )
-        return compile_and_run(chosen) if lang == "cpp" else execute_python(chosen)
-    if cpp.is_file() and py.is_file():
+        return DISPATCH[lang](chosen)
+    solutions = {
+        name: folder / f"solution.{name}"
+        for name in DISPATCH
+        if (folder / f"solution.{name}").is_file()
+    }
+    if len(solutions) > 1:
         return fail(
             f"number '{number}' has both languages "
             f"in {folder.relative_to(ROOT)}: solution.cpp and solution.py "
             f"— pass --lang cpp or --lang py"
         )
-    if cpp.is_file():
-        return compile_and_run(cpp)
-    if py.is_file():
-        return execute_python(py)
+    if solutions:
+        name, solution = next(iter(solutions.items()))
+        return DISPATCH[name](solution)
     return fail(f"no solution in {folder.relative_to(ROOT)}")
 
 
 def run_by_path(target: str, lang: str | None) -> int:
     path = Path(target)
     if path.is_file():
-        suffix = path.suffix
-        if suffix not in (".cpp", ".py"):
+        suffix = path.suffix.lstrip(".")
+        if suffix not in DISPATCH:
             return fail(
                 f"unsupported file type '{target}' "
                 f"(only .cpp and .py are supported)"
             )
-        implied = suffix.lstrip(".")
-        if lang is not None and lang != implied:
+        if lang is not None and lang != suffix:
             return fail(
-                f"--lang {lang} does not match {suffix} file '{target}'"
+                f"--lang {lang} does not match .{suffix} file '{target}'"
             )
-        path = path.resolve()
-        return compile_and_run(path) if suffix == ".cpp" else execute_python(path)
+        return DISPATCH[suffix](path.resolve())
     if path.exists():
         return fail(f"not a file: {target}")
     return fail(f"no such file: {target}")
@@ -262,7 +285,7 @@ def run_by_path(target: str, lang: str | None) -> int:
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        prog="run.py",
+        prog="run",
         description="Compile-and-run solutions by problem number or path.",
     )
     parser.add_argument(

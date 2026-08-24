@@ -1,6 +1,6 @@
 """Black-box tests for the Runner, at the CLI seam.
 
-The Runner under test is a copy of the repository's runner script placed at the
+The Runner under test is a copy of the repository's Runner placed at the
 root of a fixture tree (a fabricated tracks/categories/problems layout in a
 temporary directory). Tests invoke it as a subprocess and assert on stdout,
 exit codes, and filesystem effects. Runner internals are never imported.
@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-RUNNER_SOURCE = REPO_ROOT / "run.py"
+RUNNER_SOURCE = REPO_ROOT / "run"
 
 CPP_HELLO = """\
 #include <iostream>
@@ -99,13 +99,21 @@ class TestNumberMode(RunnerCliTestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("fixture output", result.stdout)
 
-    def test_short_number_is_zero_padded_to_match(self):
+    def test_non_four_digit_number_never_matches(self):
         self.add_problem(
             "0217", "contains_duplicate", files={"solution.cpp": CPP_HELLO}
         )
         result = self.run_cli("217")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("fixture output", result.stdout)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no problem folder matches", result.stderr)
+
+    def test_zero_padded_short_number_never_matches_longer_folder(self):
+        self.add_problem(
+            "0021", "merge_two_sorted_lists", files={"solution.cpp": CPP_HELLO}
+        )
+        result = self.run_cli("021")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no problem folder matches", result.stderr)
 
     def test_runs_solution_from_general_track(self):
         self.add_problem(
@@ -139,6 +147,21 @@ class TestNumberResolutionErrors(RunnerCliTestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("0217_contains_duplicate", result.stderr)
         self.assertIn("0217_duplicate_number", result.stderr)
+
+    def test_unknown_number_error_lists_candidate_folders(self):
+        self.add_problem(
+            "0217", "contains_duplicate", files={"solution.cpp": CPP_HELLO}
+        )
+        result = self.run_cli("021")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no problem folder matches", result.stderr)
+        self.assertIn("0217_contains_duplicate", result.stderr)
+
+    def test_unknown_number_without_candidates_says_so(self):
+        result = self.run_cli("9999")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no problem folder matches", result.stderr)
+        self.assertIn("none", result.stderr)
 
     def test_number_without_any_solution_fails_naming_folder(self):
         self.add_problem("0217", "contains_duplicate", files={"README.md": "notes"})
