@@ -10,12 +10,12 @@ Personal repository for tracking progress through the [NeetCode 250](https://nee
 | 01. Arrays & Hashing | 8 / 22 | 🔄 In Progress |
 | 02. Two Pointers | 0 / 13 | ⏳ Not Started |
 | 03. Sliding Window | 0 / 9 | ⏳ Not Started |
-| 04. Stack | 0 / 15 | ⏳ Not Started |
+| 04. Stack | 0 / 14 | ⏳ Not Started |
 | 05. Binary Search | 0 / 14 | ⏳ Not Started |
 | 06. Linked List | 0 / 14 | ⏳ Not Started |
 | 07. Trees | 0 / 23 | ⏳ Not Started |
 | 08. Heap / Priority Queue | 0 / 12 | ⏳ Not Started |
-| 09. Backtracking | 0 / 16 | ⏳ Not Started |
+| 09. Backtracking | 0 / 17 | ⏳ Not Started |
 | 10. Tries | 0 / 4 | ⏳ Not Started |
 | 11. Graphs | 0 / 21 | ⏳ Not Started |
 | 12. Advanced Graphs | 0 / 10 | ⏳ Not Started |
