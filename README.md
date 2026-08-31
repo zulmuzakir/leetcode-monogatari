@@ -7,7 +7,7 @@ Personal repository for tracking progress through the [NeetCode 250](https://nee
 <!-- progress:start -->
 | Category | Progress | Status |
 | :--- | :---: | :--- |
-| 01. Arrays & Hashing | 8 / 22 | 🔄 In Progress |
+| 01. Arrays & Hashing | 9 / 22 | 🔄 In Progress |
 | 02. Two Pointers | 0 / 13 | ⏳ Not Started |
 | 03. Sliding Window | 0 / 9 | ⏳ Not Started |
 | 04. Stack | 0 / 14 | ⏳ Not Started |
